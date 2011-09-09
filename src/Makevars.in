@@ -1,0 +1,2 @@
+CC=mpicc
+SHLIB_LD=mpicc
