@@ -69,29 +69,8 @@ install: clean internal-build
 check: internal-build
 	cd $(RBUILD); $(REXEC) $(RCOMMAND) $(RCHECK) $(TARGET)
 
-rproftest:
-	$(REXEC) --vanilla --slave < $(RPROFTESTFILE)
-
-testdocs:
-	$(DOCTESTGEN)
-	$(REXEC) --vanilla --slave < $(DOCTESTFILE)
-
-test:
-	$(REXEC) --vanilla --slave --cpus=$(CPUS) < $(TESTFILE)
-	
-nightly:
-	$(REXEC) --vanilla --slave < $(NIGHTLYFILE)	
-
-failtest:
-	$(REXEC) --vanilla --slave < $(FAILTESTFILE)
-
-memorytest:
-	$(REXEC) -d "valgrind --tool=memcheck --leak-check=full --suppressions=inst/tools/OpenMx.supp --quiet" --vanilla --slave < $(MEMORYTESTFILE)
-
 clean:
 	rm -rf $(RBUILD)/*
-	rm -rf models/passing/temp-files/*
-	rm -rf models/failing/temp-files/*
 
 veryclean: clean
 	find . -name "*~" -exec rm -rf '{}' \;

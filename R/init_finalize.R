@@ -17,6 +17,6 @@ pbmpi_init <- function() {
  .Call("initPiebaldMPI", PACKAGE = "PiebaldMPI")
 }
 
-bpmpi_finalize <- function() {
+pbmpi_finalize <- function() {
  .Call("finalizePiebaldMPI", PACKAGE = "PiebaldMPI")
 }
