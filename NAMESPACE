@@ -1,0 +1,7 @@
+
+useDynLib(PiebaldMPI, .registration=TRUE)
+
+# basic functions in the OpenMx library
+exportPattern("^pbmpi.+")
+
+
