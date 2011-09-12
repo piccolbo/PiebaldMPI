@@ -18,16 +18,11 @@
 #include <Rinternals.h>
 #include <Rdefines.h>
 #include <R_ext/Rdynload.h>
-
 #include <mpi.h>
 
-// Global state. This variables should be read-only.
-int readonly_rank, readonly_nproc;
-
-
-// Forward declaractions
-SEXP initPiebaldMPI();
-SEXP finalizePiebaldMPI();
+#include "commands.h"
+#include "init_finalize.h"
+#include "state.h"
 
 
 /* Set up R .Call info */
@@ -46,19 +41,4 @@ void R_unload_mylib(DllInfo *info) {
 /* Release resources. */
 }
 
-SEXP initPiebaldMPI() {
 
-   MPI_Init(NULL, NULL);
-   MPI_Comm_size( MPI_COMM_WORLD, &readonly_nproc );
-   MPI_Comm_rank( MPI_COMM_WORLD, &readonly_rank );   
-
-   if (readonly_rank == 0) {      
-      return(R_NilValue);
-   } else {
-      while(1) {}
-   }
-}
-
-SEXP finalizePiebaldMPI() {
-   MPI_Finalize();
-}

@@ -14,9 +14,9 @@
 #   limitations under the License.
 
 pbmpi_init <- function() {
- .Call("initPiebaldMPI", PACKAGE = "PiebaldMPI")
+ invisible(.Call("initPiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
 pbmpi_finalize <- function() {
- .Call("finalizePiebaldMPI", PACKAGE = "PiebaldMPI")
+ invisible(.Call("finalizePiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
