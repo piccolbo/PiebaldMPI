@@ -17,30 +17,18 @@
 #include "R.h"
 #include <Rinternals.h>
 #include <Rdefines.h>
-#include <R_ext/Rdynload.h>
-#include <mpi.h>
 
-#include "commands.h"
 #include "init_finalize.h"
-#include "getrank.h"
 #include "state.h"
 
+SEXP getrankPiebaldMPI() {
+   SEXP retval;
 
-/* Set up R .Call info */
-R_CallMethodDef callMethods[] = {
-{"initPiebaldMPI", (void*(*)())&initPiebaldMPI, 0},
-{"finalizePiebaldMPI", (void*(*)())&finalizePiebaldMPI, 0},
-{"getrankPiebaldMPI", (void*(*)())&getrankPiebaldMPI, 0},
-{NULL, NULL, 0}
-};
+   checkPiebaldInit();
 
-void R_init_mylib(DllInfo *info) {
-/* Register routines, allocate resources. */
-R_registerRoutines(info, NULL, callMethods, NULL, NULL);
+   PROTECT(retval = allocVector(INTSXP, 1));
+   INTEGER(retval)[0] = readonly_rank;
+   UNPROTECT(1);
+
+   return(retval);
 }
-
-void R_unload_mylib(DllInfo *info) {
-/* Release resources. */
-}
-
-

@@ -5,6 +5,8 @@
 #include <Rinternals.h>
 #include <Rdefines.h>
 
+
+void checkPiebaldInit();
 SEXP initPiebaldMPI();
 SEXP finalizePiebaldMPI();
 

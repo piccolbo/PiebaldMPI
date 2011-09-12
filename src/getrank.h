@@ -14,33 +14,15 @@
  *  limitations under the License.
  */
 
+#ifndef _getrank_h
+#define _getrank_h
+
 #include "R.h"
 #include <Rinternals.h>
 #include <Rdefines.h>
-#include <R_ext/Rdynload.h>
-#include <mpi.h>
 
-#include "commands.h"
-#include "init_finalize.h"
-#include "getrank.h"
-#include "state.h"
+SEXP getrankPiebaldMPI();
 
 
-/* Set up R .Call info */
-R_CallMethodDef callMethods[] = {
-{"initPiebaldMPI", (void*(*)())&initPiebaldMPI, 0},
-{"finalizePiebaldMPI", (void*(*)())&finalizePiebaldMPI, 0},
-{"getrankPiebaldMPI", (void*(*)())&getrankPiebaldMPI, 0},
-{NULL, NULL, 0}
-};
 
-void R_init_mylib(DllInfo *info) {
-/* Register routines, allocate resources. */
-R_registerRoutines(info, NULL, callMethods, NULL, NULL);
-}
-
-void R_unload_mylib(DllInfo *info) {
-/* Release resources. */
-}
-
-
+#endif // #ifndef _getrank_h

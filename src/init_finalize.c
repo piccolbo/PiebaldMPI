@@ -19,23 +19,29 @@
 #include "state.h"
 #include <mpi.h>
 
+
 SEXP initPiebaldMPI() {
+   if(readonly_initialized == TRUE) {
+      error("The function pbmpi_init() has already been called.");
+   }
 
    MPI_Init(NULL, NULL);
    MPI_Comm_size( MPI_COMM_WORLD, &readonly_nproc );
    MPI_Comm_rank( MPI_COMM_WORLD, &readonly_rank );   
 
+   readonly_initialized = TRUE;
+
    if (readonly_rank == 0) {      
       return(R_NilValue);
    } else {
-      int done = 0;
+      int done = FALSE;
       int command;
-      while(!done) {
+      while(done == FALSE) {
          MPI_Bcast(&command, 1, MPI_INT, 0, MPI_COMM_WORLD);
          switch(command) {
             case TERMINATE:
                MPI_Finalize();
-               done = 1;
+               done = TRUE;
                break;
             default:
                break;
@@ -45,13 +51,23 @@ SEXP initPiebaldMPI() {
    return(R_NilValue);
 }
 
+void checkPiebaldInit() {
+   if(readonly_initialized == FALSE) {
+      error("The function pbmpi_init() must be invoked before this function can be called.");
+   }
+}
+
 
 SEXP finalizePiebaldMPI() {
+   checkPiebaldInit();
+
    if (readonly_rank == 0) {
       int command = TERMINATE;
       MPI_Bcast(&command, 1, MPI_INT, 0, MPI_COMM_WORLD);
    }
    MPI_Finalize();
+
+   readonly_initialized = FALSE;   
    return(R_NilValue);
 }
 

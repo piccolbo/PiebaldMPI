@@ -5,8 +5,4 @@ enum Command { TERMINATE };
 
 
 
-
-
-
-
 #endif // _commands_h
