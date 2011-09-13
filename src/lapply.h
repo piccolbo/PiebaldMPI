@@ -14,33 +14,18 @@
  *  limitations under the License.
  */
 
+#ifndef _lapply_h
+#define _lapply_h
+
 #include "R.h"
 #include <Rinternals.h>
 #include <Rdefines.h>
+#include <R_ext/Rdynload.h>
 
-#include "init_finalize.h"
-#include "state.h"
 
-SEXP getrankPiebaldMPI() {
-   SEXP retval;
+SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs, 
+      SEXP serializeRemainder);
 
-   checkPiebaldInit();
+void lapplyWorkerPiebaldMPI();
 
-   PROTECT(retval = allocVector(INTSXP, 1));
-   INTEGER(retval)[0] = readonly_rank;
-   UNPROTECT(1);
-
-   return(retval);
-}
-
-SEXP getsizePiebaldMPI() {
-   SEXP retval;
-
-   checkPiebaldInit();
-
-   PROTECT(retval = allocVector(INTSXP, 1));
-   INTEGER(retval)[0] = readonly_nproc;
-   UNPROTECT(1);
-
-   return(retval);
-}
+#endif // _lapply_h

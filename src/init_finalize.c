@@ -17,8 +17,11 @@
 #include "init_finalize.h"
 #include "commands.h"
 #include "state.h"
+#include "lapply.h"
 #include <mpi.h>
 
+int readonly_rank, readonly_nproc;
+int readonly_initialized = 0;
 
 SEXP initPiebaldMPI() {
    if(readonly_initialized == TRUE) {
@@ -42,6 +45,9 @@ SEXP initPiebaldMPI() {
             case TERMINATE:
                MPI_Finalize();
                done = TRUE;
+               break;
+            case LAPPLY:
+               lapplyWorkerPiebaldMPI();
                break;
             default:
                break;

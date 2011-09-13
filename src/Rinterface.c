@@ -22,6 +22,7 @@
 
 #include "commands.h"
 #include "init_finalize.h"
+#include "lapply.h"
 #include "getrank.h"
 #include "state.h"
 
@@ -31,6 +32,8 @@ R_CallMethodDef callMethods[] = {
 {"initPiebaldMPI", (void*(*)())&initPiebaldMPI, 0},
 {"finalizePiebaldMPI", (void*(*)())&finalizePiebaldMPI, 0},
 {"getrankPiebaldMPI", (void*(*)())&getrankPiebaldMPI, 0},
+{"getsizePiebaldMPI", (void*(*)())&getsizePiebaldMPI, 0},
+{"lapplyPiebaldMPI", (void*(*)())&lapplyPiebaldMPI, 3},
 {NULL, NULL, 0}
 };
 

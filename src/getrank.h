@@ -22,6 +22,7 @@
 #include <Rdefines.h>
 
 SEXP getrankPiebaldMPI();
+SEXP getsizePiebaldMPI();
 
 
 

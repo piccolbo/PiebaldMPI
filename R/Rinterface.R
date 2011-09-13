@@ -24,3 +24,22 @@ pbmpi_finalize <- function() {
 pbmpi_getrank <- function() {
    return(.Call("getrankPiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
+
+pbmpi_getsize <- function() {
+   return(.Call("getsizePiebaldMPI", PACKAGE = "PiebaldMPI"))
+}
+
+pbmpi_lapply <- function(X, FUN, ...) {
+   rank <- pbmpi_getrank()
+   nproc <- pbmpi_getsize()
+   if (rank > 0 || nproc < 2) {
+      return(lapply(X, FUN, ...))
+   }
+   serializeArgs <- lapply(X, serialize, connection = NULL)
+   functionName <- as.character(match.call()$FUN)
+   serializeRemainder <- serialize(list(...), connection = NULL)
+
+   return(.Call("lapplyPiebaldMPI", functionName, serializeArgs, 
+      serializeRemainder, PACKAGE = "PiebaldMPI"))
+
+}
