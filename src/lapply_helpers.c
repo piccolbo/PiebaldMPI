@@ -56,6 +56,9 @@ void sendArgCounts(int *argcounts, int supervisorWorkCount, int numArgs) {
    for(i = offset; i < readonly_nproc; i++) {
       argcounts[i] = div;
    }
+   for(i = 0; i < readonly_nproc; i++) {
+      Rprintf("Work count for rank %d is %d\n", i, argcounts[i]);
+   }
 
    MPI_Scatter(argcounts, 1, MPI_INT, &supervisorWorkCount, 1, MPI_INT, 0, MPI_COMM_WORLD);
 }
@@ -94,6 +97,32 @@ void generateRawByteDisplacements(int *rawByteDisplacements, int *rawByteCounts)
    for(i = 1; i < readonly_nproc; i++) {
       rawByteDisplacements[i] = rawByteCounts[i - 1] + rawByteDisplacements[i - 1];
    }
+}
+
+void sendArgDisplacements(int *argcounts, int *supervisorSizes, SEXP serializeArgs) {
+   int numArgs = LENGTH(serializeArgs);
+   int *sizes = Calloc(numArgs, int);
+   int *displacements = Calloc(readonly_nproc, int);
+   int supervisorWorkCount = argcounts[0];
+   int i, offset;
+   SEXP arg;
+
+   for(i = 0; i < numArgs; i++) {
+      PROTECT(arg = VECTOR_ELT(serializeArgs, i));
+      offset = LENGTH(arg);
+      sizes[i] = offset;
+      UNPROTECT(1); // VECTOR_ELT(serializeArgs, i)
+   } 
+
+   for(i = 1; i < readonly_nproc; i++) {
+      displacements[i] = displacements[i - 1] + argcounts[i - 1];
+   }
+
+   MPI_Scatterv(sizes, argcounts, displacements, MPI_INT,
+      supervisorSizes, supervisorWorkCount, MPI_INT, 0, MPI_COMM_WORLD);
+
+   Free(sizes);
+   Free(displacements);
 }
 
 void sendArgRawBytes(unsigned char *argRawBytes, int *rawByteDisplacements, int *rawByteCounts,

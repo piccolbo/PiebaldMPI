@@ -13,25 +13,25 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-pbmpi_init <- function() {
+pbInit <- function() {
    invisible(.Call("initPiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
-pbmpi_finalize <- function() {
+pbFinalize <- function() {
    invisible(.Call("finalizePiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
-pbmpi_getrank <- function() {
+pbRank <- function() {
    return(.Call("getrankPiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
-pbmpi_getsize <- function() {
+pbSize <- function() {
    return(.Call("getsizePiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
-pbmpi_lapply <- function(X, FUN, ...) {
-   rank <- pbmpi_getrank()
-   nproc <- pbmpi_getsize()
+pbLapply <- function(X, FUN, ...) {
+   rank <- pbRank()
+   nproc <- pbSize()
    if (rank > 0 || nproc < 2) {
       return(lapply(X, FUN, ...))
    }
