@@ -113,7 +113,7 @@ SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs,
    lapplyPiebaldMPI_doSend(functionName, serializeArgs, 
       serializeRemainder, argcounts, &supervisorWorkCount);
 
-   evaluateLocalWork(functionName, serializeArgs, returnList, supervisorWorkCount);
+   evaluateLocalWork(functionName, serializeArgs, serializeRemainder, returnList, supervisorWorkCount);
 
    lapplyPiebaldMPI_doReceive(argcounts, returnList, numArgs, supervisorWorkCount);
 

@@ -33,6 +33,7 @@ help:
 	@echo "TEST"
 	@echo ""
 	@echo "  test         run the testsuite (use CPUS=n parameter)"
+	@echo ""
 	@echo "CLEANING"
 	@echo ""	
 	@echo "  clean      remove all files from the build directory"

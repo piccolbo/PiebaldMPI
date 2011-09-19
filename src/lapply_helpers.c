@@ -142,13 +142,21 @@ void sendArgRawBytes(unsigned char *argRawBytes, int *rawByteDisplacements, int 
 }
 
 
-void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP returnList, int count) {
+void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP serializeRemainder, SEXP returnList, int count) {
    int i;
    SEXP unserializeCall, functionCall;
+   SEXP remainder;
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
-   PROTECT(functionCall = lang2(findVar(
-       install(CHAR(STRING_ELT(functionName, 0))), R_GlobalEnv), R_NilValue));
+
+   SETCADR(unserializeCall, serializeRemainder);
+   PROTECT(remainder = eval(unserializeCall, R_GlobalEnv));
+
+   functionCall = Rf_VectorToPairList(remainder);
+
+   PROTECT(functionCall = LCONS(findVar(
+       install(CHAR(STRING_ELT(functionName, 0))), R_GlobalEnv),
+          LCONS(R_NilValue, functionCall)));
 
    for(i = 0; i < count; i++) {
       SEXP serialArg = VECTOR_ELT(serializeArgs, i);
@@ -158,7 +166,7 @@ void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP returnList, i
       SET_VECTOR_ELT(returnList, i, eval(functionCall, R_GlobalEnv));
    }
 
-   UNPROTECT(2);
+   UNPROTECT(3);
 
 }
 

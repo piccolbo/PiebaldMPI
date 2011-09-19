@@ -74,12 +74,24 @@ checkTrue <- function(a) {
 
 plus1 <- function(x) { x + 1 }
 
+plus1WithAnonymous <- function(x, ...) {
+   args <- list(...)
+   return (x + args[[1]])
+}
+
+plus1WithNamed <- function(x, ...) {
+   args <- list(...)
+   return (x + args$inc)
+}
+
 pbInit()
 
 tryCatch(
    {
       checkTrue(pbSize() > 1)
       checkIdentical(lapply(1:15, plus1), pbLapply(1:15, plus1))
+      checkIdentical(lapply(1:15, plus1WithAnonymous, 5), pbLapply(1:15, plus1WithAnonymous, 5))
+      checkIdentical(lapply(1:15, plus1WithNamed, inc = 5), pbLapply(1:15, plus1WithNamed, inc = 5))
    }, error = function(e) {
       cat("\n")
       cat(paste("The following error was detected:",

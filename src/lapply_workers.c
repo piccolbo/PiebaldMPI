@@ -46,6 +46,7 @@ void lapplyWorkerPiebaldMPI() {
    int *workSizes;
    SEXP serializeRemainder, serializeArgs;
    SEXP serializeReturnList, returnList, theFunction;
+   SEXP remainder;
    SEXP serializeCall, unserializeCall, functionCall;
    unsigned char *receiveBuffer = NULL;
    unsigned char *sendBuffer = NULL;
@@ -82,7 +83,13 @@ void lapplyWorkerPiebaldMPI() {
    PROTECT(returnList = allocVector(VECSXP, workCount));
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
-   PROTECT(functionCall = lang2(theFunction, R_NilValue));
+
+   SETCADR(unserializeCall, serializeRemainder);
+   PROTECT(remainder = eval(unserializeCall, R_GlobalEnv));
+
+   functionCall = Rf_VectorToPairList(remainder);
+
+   PROTECT(functionCall = LCONS(theFunction, LCONS(R_NilValue, functionCall)));
 
    for(i = 0; i < workCount; i++) {
       SEXP serialArg = VECTOR_ELT(serializeArgs, i);
@@ -92,7 +99,7 @@ void lapplyWorkerPiebaldMPI() {
       SET_VECTOR_ELT(serializeReturnList, i, eval(functionCall, R_GlobalEnv));
    }
   
-   UNPROTECT(2);
+   UNPROTECT(3);
 
    PROTECT(serializeCall = lang3(readonly_serialize, R_NilValue, R_NilValue));
    for(i = 0; i < workCount; i++) {
