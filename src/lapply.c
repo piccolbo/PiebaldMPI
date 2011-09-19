@@ -39,17 +39,18 @@ SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs,
 
    checkPiebaldInit();
 
-
-   int numArgs = LENGTH(serializeArgs);
+   int i, numArgs = LENGTH(serializeArgs);
    size_t totalLength;
    int *argcounts = Calloc(readonly_nproc, int);
    int *rawByteDisplacements = Calloc(readonly_nproc, int);
    int *rawByteCounts = Calloc(readonly_nproc, int);
    unsigned char *argRawBytes = NULL, *receiveBuffer = NULL;
 
-   SEXP arg;
+   SEXP arg, returnList, serialReturnList;
+   SEXP unserializeCall, functionCall;
    int supervisorWorkCount, supervisorByteCount;
    int *supervisorSizes;
+   int argOffset, byteBufferOffset;
 
    int command = LAPPLY;
    MPI_Bcast(&command, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -75,32 +76,104 @@ SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs,
    sendArgRawBytes(argRawBytes, rawByteDisplacements, rawByteCounts,
     receiveBuffer, serializeArgs);
 
+   PROTECT(returnList = allocVector(VECSXP, numArgs));
+
+   PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
+   PROTECT(functionCall = lang2(findVar(
+       install(CHAR(STRING_ELT(functionName, 0))), R_GlobalEnv), R_NilValue));
+
+   for(i = 0; i < supervisorWorkCount; i++) {
+      SEXP serialArg = VECTOR_ELT(serializeArgs, i);
+      SETCADR(unserializeCall, serialArg);
+      SEXP arg = eval(unserializeCall, R_GlobalEnv);
+      SETCADR(functionCall, arg); 
+      SET_VECTOR_ELT(returnList, i, eval(functionCall, R_GlobalEnv));
+   }
+
+   UNPROTECT(1);
+
+   int *incomingLengths = Calloc(readonly_nproc, int);
+   int *incomingDisplacements = Calloc(readonly_nproc, int);
+   int empty = 0;
+
+   MPI_Gather(&empty, 1, MPI_INT, incomingLengths, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+   int totalIncomingLength = 0;
+   for(i = 0; i < readonly_nproc; i++) {
+      totalIncomingLength += incomingLengths[i];
+      if (i > 0) incomingDisplacements[i] = incomingLengths[i - 1] + incomingDisplacements[i - 1];
+   }
+
+   int *incomingSizes = Calloc(numArgs, int);
+   int *incomingSizeDisplacements = Calloc(readonly_nproc, int);
+   for(i = 1; i < readonly_nproc; i++) {
+      incomingSizeDisplacements[i] = incomingSizeDisplacements[i - 1] + argcounts[i - 1];
+   }
+
+   MPI_Gatherv(NULL, 0, MPI_INT, incomingSizes, argcounts, incomingSizeDisplacements,
+      MPI_INT, 0, MPI_COMM_WORLD);
+
+   unsigned char *serializedBytesBuffer = Calloc(totalIncomingLength, unsigned char);
+   MPI_Gatherv(NULL, 0, MPI_BYTE, serializedBytesBuffer, incomingLengths, incomingDisplacements,
+      MPI_BYTE, 0, MPI_COMM_WORLD);
+ 
+   argOffset = supervisorWorkCount;
+   byteBufferOffset = 0;
+   while(argOffset < numArgs) {
+      SEXP serialArg;
+      PROTECT(serialArg = allocVector(RAWSXP, incomingSizes[argOffset]));
+      memcpy(RAW(serialArg), serializedBytesBuffer + byteBufferOffset, incomingSizes[argOffset]);
+      SETCADR(unserializeCall, serialArg);
+      SET_VECTOR_ELT(returnList, argOffset, eval(unserializeCall, R_GlobalEnv));
+      UNPROTECT(1);
+      byteBufferOffset += incomingSizes[argOffset];
+      argOffset++;
+   }
+
+   UNPROTECT(2);
+
    Free(supervisorSizes);
    Free(rawByteDisplacements);
    Free(argRawBytes);  
    Free(receiveBuffer);
    Free(rawByteCounts);
    Free(argcounts);
+   Free(incomingLengths);
+   Free(incomingSizes);
+   Free(incomingSizeDisplacements);
+   Free(serializedBytesBuffer);
 
-   return(R_NilValue);
+   return(returnList);
 }
 
-void lapplyWorkerPiebaldMPI() {
-   int nameLength, remainderLength;
-   int i, offset;
-   int workCount, bytesCount;
-   int *workSizes;
+SEXP findFunction() {
+   int nameLength;
    char *functionName;
-   SEXP serializeRemainder, serializeArgs;
-   SEXP returnList, theFunction;
-   SEXP serializeCall, unserializeCall, functionCall;
-   unsigned char *receiveBuffer = NULL;
+   SEXP retval;
 
    MPI_Bcast(&nameLength, 1, MPI_INT, 0, MPI_COMM_WORLD);
    functionName = Calloc(nameLength, char);
    MPI_Bcast((void*) functionName, nameLength, MPI_CHAR, 0, MPI_COMM_WORLD);
+   retval = findVar(install(functionName), R_GlobalEnv);
+   Free(functionName);
+   return(retval);
+}
 
-   theFunction = findVar(install(functionName), R_GlobalEnv);
+
+
+void lapplyWorkerPiebaldMPI() {
+   int remainderLength;
+   int currentLength;
+   int i, offset;
+   int workCount, bytesCount;
+   int *workSizes;
+   SEXP serializeRemainder, serializeArgs;
+   SEXP serializeReturnList, returnList, theFunction;
+   SEXP serializeCall, unserializeCall, functionCall;
+   unsigned char *receiveBuffer = NULL;
+   unsigned char *sendBuffer = NULL;
+
+   theFunction = findFunction();
 
    MPI_Bcast(&remainderLength, 1, MPI_INT, 0, MPI_COMM_WORLD);
    PROTECT(serializeRemainder = allocVector(RAWSXP, remainderLength));
@@ -115,11 +188,6 @@ void lapplyWorkerPiebaldMPI() {
 
    MPI_Scatterv(NULL, NULL, NULL, MPI_INT, workSizes, workCount, MPI_INT, 0, MPI_COMM_WORLD);
 
-   Rprintf("Work count %d, bytes count %d\n", workCount, bytesCount);
-   for(i = 0; i < workCount; i++) {
-      Rprintf("Argument # %d is stored in %d bytes\n", i, workSizes[i]);
-   }
-
    MPI_Scatterv(NULL, NULL, NULL, MPI_BYTE, receiveBuffer, bytesCount, MPI_BYTE, 0, MPI_COMM_WORLD);
 
    PROTECT(serializeArgs = allocVector(VECSXP, workCount));
@@ -133,6 +201,7 @@ void lapplyWorkerPiebaldMPI() {
       UNPROTECT(1);
    }
 
+   PROTECT(serializeReturnList = allocVector(VECSXP, workCount));
    PROTECT(returnList = allocVector(VECSXP, workCount));
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
@@ -143,29 +212,48 @@ void lapplyWorkerPiebaldMPI() {
       SETCADR(unserializeCall, serialArg);
       SEXP arg = eval(unserializeCall, R_GlobalEnv);
       SETCADR(functionCall, arg); 
-      SET_VECTOR_ELT(returnList, i, eval(functionCall, R_GlobalEnv));
+      SET_VECTOR_ELT(serializeReturnList, i, eval(functionCall, R_GlobalEnv));
    }
   
    UNPROTECT(2);
 
    PROTECT(serializeCall = lang3(readonly_serialize, R_NilValue, R_NilValue));
    for(i = 0; i < workCount; i++) {
-      SEXP arg = VECTOR_ELT(returnList, i);
+      SEXP arg = VECTOR_ELT(serializeReturnList, i);
       SETCADR(serializeCall, arg);
       SET_VECTOR_ELT(returnList, i, eval(serializeCall, R_GlobalEnv));
    }
 
-/*
    int *answerLengths = Calloc(workCount, int);
 
+   bytesCount = 0;
    for(i = 0; i < workCount; i++) {
-      answerLengths[i] = LENGTH(VECTOR_ELT(returnList, i));
+      offset = LENGTH(VECTOR_ELT(returnList, i));
+      answerLengths[i] = offset;
+      bytesCount += offset;
    }
-*/
 
+   MPI_Gather(&bytesCount, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
 
-   UNPROTECT(4);
-   Free(functionName); 
+   MPI_Gatherv(answerLengths, workCount, MPI_INT, 
+      NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD);   
+
+   sendBuffer = Calloc(bytesCount, unsigned char);
+
+   offset = 0;
+   for(i = 0; i < workCount; i++) {
+      SEXP arg = VECTOR_ELT(returnList, i);
+      currentLength = LENGTH(arg);      
+      memcpy(sendBuffer + offset, RAW(arg), currentLength);
+      offset += currentLength;
+   }
+
+   MPI_Gatherv(sendBuffer, bytesCount, MPI_BYTE, 
+      NULL, 0, NULL, MPI_BYTE, 0, MPI_COMM_WORLD);
+
+   UNPROTECT(5);
+   Free(sendBuffer);
+   Free(answerLengths);
    Free(receiveBuffer); 
    Free(workSizes);
 }

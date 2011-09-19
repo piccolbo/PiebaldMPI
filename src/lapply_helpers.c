@@ -56,9 +56,6 @@ void sendArgCounts(int *argcounts, int supervisorWorkCount, int numArgs) {
    for(i = offset; i < readonly_nproc; i++) {
       argcounts[i] = div;
    }
-   for(i = 0; i < readonly_nproc; i++) {
-      Rprintf("Work count for rank %d is %d\n", i, argcounts[i]);
-   }
 
    MPI_Scatter(argcounts, 1, MPI_INT, &supervisorWorkCount, 1, MPI_INT, 0, MPI_COMM_WORLD);
 }
