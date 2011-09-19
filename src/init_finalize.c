@@ -50,6 +50,7 @@ SEXP initPiebaldMPI() {
          switch(command) {
             case TERMINATE:
                MPI_Finalize();
+
                done = TRUE;
                break;
             case LAPPLY:

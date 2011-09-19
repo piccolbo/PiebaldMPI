@@ -15,6 +15,10 @@ RDATA = data
 RDFILES =$(wildcard man/*.Rd)
 RFILES = $(wildcard R/*.R)
 
+ifndef CPUS
+   CPUS=1
+endif
+
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo ""	
@@ -26,6 +30,9 @@ help:
 	@echo ""	
 	@echo "  install       build and install OpenMx on this machine"
 	@echo ""
+	@echo "TEST"
+	@echo ""
+	@echo "  test         run the testsuite (use CPUS=n parameter)"
 	@echo "CLEANING"
 	@echo ""	
 	@echo "  clean      remove all files from the build directory"
@@ -65,6 +72,9 @@ winbuild-biarch:
 	
 install: clean internal-build
 	cd $(RBUILD); $(REXEC) $(RCOMMAND) $(RINSTALL) $(TARGET)
+
+test:
+	mpirun -np $(CPUS) R --vanilla --slave --file=testsuite/test.R
 
 check: internal-build
 	cd $(RBUILD); $(REXEC) $(RCOMMAND) $(RCHECK) $(TARGET)

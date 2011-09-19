@@ -15,6 +15,9 @@
 
 pbInit <- function() {
    invisible(.Call("initPiebaldMPI", PACKAGE = "PiebaldMPI"))
+   if(pbRank() > 0) {
+      quit(save = "no")
+   }
 }
 
 pbFinalize <- function() {
