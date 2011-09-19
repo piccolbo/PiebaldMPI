@@ -31,6 +31,12 @@ void sendArgDisplacements(int *argcounts, int *supervisorSizes, SEXP serializeAr
 void sendArgRawBytes(unsigned char *argRawBytes, int *rawByteDisplacements, int *rawByteCounts,
     unsigned char *receiveBuffer, SEXP serializeArgs);
 
+void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP returnList, int count);
 
+void receiveIncomingLengths(int *lengths);
+void receiveIncomingSizes(int *lengths, int *sizes, int *displacements, int *argcounts, int *total);
+void receiveIncomingData(unsigned char *buffer, int *lengths, int *displacements);
+void processIncomingData(unsigned char *buffer, SEXP returnList, 
+   int *sizes, int supervisorWorkCount, int numArgs);
 
 #endif //_lapply_helpers_h

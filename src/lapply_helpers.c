@@ -140,3 +140,84 @@ void sendArgRawBytes(unsigned char *argRawBytes, int *rawByteDisplacements, int 
    MPI_Scatterv(argRawBytes, rawByteCounts, rawByteDisplacements, MPI_BYTE,
       receiveBuffer, rawByteCounts[0], MPI_BYTE, 0, MPI_COMM_WORLD);
 }
+
+
+void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP returnList, int count) {
+   int i;
+   SEXP unserializeCall, functionCall;
+
+   PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
+   PROTECT(functionCall = lang2(findVar(
+       install(CHAR(STRING_ELT(functionName, 0))), R_GlobalEnv), R_NilValue));
+
+   for(i = 0; i < count; i++) {
+      SEXP serialArg = VECTOR_ELT(serializeArgs, i);
+      SETCADR(unserializeCall, serialArg);
+      SEXP arg = eval(unserializeCall, R_GlobalEnv);
+      SETCADR(functionCall, arg); 
+      SET_VECTOR_ELT(returnList, i, eval(functionCall, R_GlobalEnv));
+   }
+
+   UNPROTECT(2);
+
+}
+
+
+void receiveIncomingLengths(int *lengths) {
+   const int empty = 0;
+
+   MPI_Gather((void*) &empty, 1, MPI_INT, lengths, 
+      1, MPI_INT, 0, MPI_COMM_WORLD);
+}
+
+
+void receiveIncomingSizes(int *lengths, int *sizes, 
+                          int *displacements, int *argcounts, int *total) {
+
+   int i, *sizeDisplacements = Calloc(readonly_nproc, int);
+
+   for(i = 0; i < readonly_nproc; i++) {
+      *total += lengths[i];
+      if (i > 0) displacements[i] = lengths[i - 1] + displacements[i - 1];
+   }
+
+   for(i = 1; i < readonly_nproc; i++) {
+      sizeDisplacements[i] = sizeDisplacements[i - 1] + argcounts[i - 1];
+   }
+
+   MPI_Gatherv(NULL, 0, MPI_INT, sizes, argcounts, sizeDisplacements,
+      MPI_INT, 0, MPI_COMM_WORLD);
+
+   free(sizeDisplacements);
+}
+
+void receiveIncomingData(unsigned char *buffer, int *lengths, int *displacements) {
+
+   MPI_Gatherv(NULL, 0, MPI_BYTE, buffer, lengths, displacements,
+      MPI_BYTE, 0, MPI_COMM_WORLD);
+
+}
+
+void processIncomingData(unsigned char *buffer, SEXP returnList, 
+   int *sizes, int supervisorWorkCount, int numArgs) {
+
+   int element = supervisorWorkCount;
+   int offset = 0;
+   SEXP unserializeCall;
+
+   PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
+
+   while(element < numArgs) {
+      int nextSize = sizes[element];
+      SEXP serialArg;
+      PROTECT(serialArg = allocVector(RAWSXP, nextSize));
+      memcpy(RAW(serialArg), buffer + offset, nextSize);
+      SETCADR(unserializeCall, serialArg);
+      SET_VECTOR_ELT(returnList, element, eval(unserializeCall, R_GlobalEnv));
+      UNPROTECT(1);
+      offset += nextSize;
+      element++;
+   }
+
+   UNPROTECT(1);
+}
