@@ -27,7 +27,7 @@
 
 
 void lapplyPiebaldMPI_doSend(SEXP functionName, SEXP serializeArgs, 
-      SEXP serializeRemainder, int *argcounts, int *supervisorWorkCount) {
+   SEXP serializeRemainder, int *argcounts, int *supervisorWorkCount) {
 
    size_t totalLength;
    int  numArgs        = LENGTH(serializeArgs);
@@ -54,7 +54,7 @@ void lapplyPiebaldMPI_doSend(SEXP functionName, SEXP serializeArgs,
 
    generateRawByteDisplacements(displacements, lengths);
    
-   sendArgDisplacements(argcounts, supervisorSizes, serializeArgs);
+   sendArgumentSizes(argcounts, supervisorSizes, serializeArgs);
 
    sendBuffer = Calloc(totalLength, unsigned char);
    receiveBuffer = Calloc(lengths[0], unsigned char);
@@ -70,7 +70,8 @@ void lapplyPiebaldMPI_doSend(SEXP functionName, SEXP serializeArgs,
 
 }
 
-void lapplyPiebaldMPI_doReceive(int *argcounts, SEXP returnList, int numArgs, int supervisorWorkCount) {
+void lapplyPiebaldMPI_doReceive(int *argcounts, SEXP returnList, 
+   int numArgs, int supervisorWorkCount) {
 
    int *lengths       = Calloc(readonly_nproc, int);
    int *displacements = Calloc(readonly_nproc, int);
@@ -113,9 +114,11 @@ SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs,
    lapplyPiebaldMPI_doSend(functionName, serializeArgs, 
       serializeRemainder, argcounts, &supervisorWorkCount);
 
-   evaluateLocalWork(functionName, serializeArgs, serializeRemainder, returnList, supervisorWorkCount);
+   evaluateLocalWork(functionName, serializeArgs, serializeRemainder, 
+      returnList, supervisorWorkCount);
 
-   lapplyPiebaldMPI_doReceive(argcounts, returnList, numArgs, supervisorWorkCount);
+   lapplyPiebaldMPI_doReceive(argcounts, returnList, 
+      numArgs, supervisorWorkCount);
 
    Free(argcounts);
 

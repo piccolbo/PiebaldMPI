@@ -27,7 +27,7 @@ void sendRemainder(SEXP serializeRemainder);
 void sendArgCounts(int *argcounts, int supervisorWorkCount, int numArgs);
 void sendRawByteCounts(int *rawByteCounts, int *argcounts, SEXP serializeArgs, size_t *totalLength);
 void generateRawByteDisplacements(int *rawByteDisplacements, int *rawByteCounts);
-void sendArgDisplacements(int *argcounts, int *supervisorSizes, SEXP serializeArgs);
+void sendArgumentSizes(int *argcounts, int *supervisorSizes, SEXP serializeArgs);
 void sendArgRawBytes(unsigned char *argRawBytes, int *rawByteDisplacements, int *rawByteCounts,
     unsigned char *receiveBuffer, SEXP serializeArgs);
 
