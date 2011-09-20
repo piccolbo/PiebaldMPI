@@ -19,12 +19,16 @@ library(PiebaldMPI)
 
 plus1 <- function(x) { x + 1 }
 
-plus1WithAnonymous <- function(x, ...) {
+plusWithSecond <- function(x, y) {
+   return (x + y)
+}
+
+plusWithAnonymous <- function(x, ...) {
    args <- list(...)
    return (x + args[[1]])
 }
 
-plus1WithNamed <- function(x, ...) {
+plusWithNamed <- function(x, ...) {
    args <- list(...)
    return (x + args$inc)
 }
@@ -37,11 +41,14 @@ tryCatch(
 
       checkIdentical(lapply(1:15, plus1), pbLapply(1:15, plus1))
 
-      checkIdentical(lapply(1:15, plus1WithAnonymous, 5), 
-                     pbLapply(1:15, plus1WithAnonymous, 5))
+      checkIdentical(lapply(1:15, plusWithSecond, 5), 
+                     pbLapply(1:15, plusWithSecond, 5))
 
-      checkIdentical(lapply(1:15, plus1WithNamed, inc = 5), 
-                     pbLapply(1:15, plus1WithNamed, inc = 5))
+      checkIdentical(lapply(1:15, plusWithAnonymous, 5), 
+                     pbLapply(1:15, plusWithAnonymous, 5))
+
+      checkIdentical(lapply(1:15, plusWithNamed, inc = 5), 
+                     pbLapply(1:15, plusWithNamed, inc = 5))
 
    }, error = function(e) {
       cat("\n")
