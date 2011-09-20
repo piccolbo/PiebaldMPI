@@ -75,7 +75,7 @@ install: clean internal-build
 	cd $(RBUILD); $(REXEC) $(RCOMMAND) $(RINSTALL) $(TARGET)
 
 test:
-	mpirun -np $(CPUS) R --vanilla --slave --file=testsuite/test.R
+	cd testsuite; mpirun -np $(CPUS) R --vanilla --slave --file=test.R
 
 check: internal-build
 	cd $(RBUILD); $(REXEC) $(RCOMMAND) $(RCHECK) $(TARGET)
