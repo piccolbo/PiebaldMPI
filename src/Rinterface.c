@@ -25,6 +25,7 @@
 #include "lapply.h"
 #include "getrank.h"
 #include "state.h"
+#include "compiler_directives.h"
 
 
 /* Set up R .Call info */
@@ -42,7 +43,7 @@ void R_init_mylib(DllInfo *info) {
 R_registerRoutines(info, NULL, callMethods, NULL, NULL);
 }
 
-void R_unload_mylib(DllInfo *info) {
+void R_unload_mylib(DllInfo *info COMPILER_DIRECTIVE_UNUSED) {
 /* Release resources. */
 }
 

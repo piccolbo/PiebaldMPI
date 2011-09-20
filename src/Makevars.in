@@ -1,2 +1,3 @@
 CC=mpicc
 SHLIB_LD=mpicc
+PKG_CFLAGS=@WARN_ALL@ @WARN_EXTRA@
