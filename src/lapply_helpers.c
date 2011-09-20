@@ -176,7 +176,7 @@ void sendArgumentSizes(int *argcounts, int *supervisorSizes,
       PROTECT(arg = VECTOR_ELT(serializeArgs, i));
       offset = LENGTH(arg);
       sizes[i] = offset;
-      UNPROTECT(1); // VECTOR_ELT(serializeArgs, i)
+      UNPROTECT(1);
    } 
 
    for(i = 1; i < readonly_nproc; i++) {
@@ -264,6 +264,20 @@ void evaluateLocalWork(SEXP functionName, SEXP serializeArgs,
 }
 
 
+
+/**
+   Receive the total byte counts of the generated results from the workers.
+
+   After processing its local tasks, each worker informs the supervisor
+   of the total number of bytes the worker has generated, so that the 
+   supervisor can allocate enough memory in the receive buffer.
+   The total number of bytes per worker is necessary for transmitting
+   the return values from the workers to the supervisor. In 
+   receiveIncomingSizes, the total number of bytes per task is gathered
+   so that the receiving buffer can be unpacked into return values.
+
+   @param[out]  lengths        total byte count per worker
+*/
 void receiveIncomingLengths(int *lengths) {
    const int empty = 0;
 
@@ -272,6 +286,22 @@ void receiveIncomingLengths(int *lengths) {
 }
 
 
+
+/**
+   Receive the byte count per task from the workers.
+
+   The total number of bytes per worker has been populated in the
+   lengths aray. The total number of bytes per task
+   is gathered so that the receiving buffer can be unpacked into
+   return values. The function populates the displacements array
+   and calculates the total number of bytes to be received.
+
+   @param[in]   lengths         total byte count per worker
+   @param[out]  sizes           number of bytes per task
+   @param[out]  displacements   displacement buffer per worker
+   @param[in]   argcounts       number of tasks per worker
+   @param[out]  total           total number of bytes to receive
+*/
 void receiveIncomingSizes(int *lengths, int *sizes, 
                           int *displacements, int *argcounts, int *total) {
 
@@ -292,6 +322,15 @@ void receiveIncomingSizes(int *lengths, int *sizes,
    free(sizeDisplacements);
 }
 
+
+
+/**
+   Receive the return values from the workers.
+
+   @param[out]  buffer          receiving buffer
+   @param[in]   lengths         total byte count per worker
+   @param[in]   displacements   displacement buffer per worker
+*/
 void receiveIncomingData(unsigned char *buffer, 
    int *lengths, int *displacements) {
 
@@ -300,6 +339,21 @@ void receiveIncomingData(unsigned char *buffer,
 
 }
 
+
+/**
+   Process the return values from the workers.
+
+   Unserialize the return values from the workers and 
+   populate the R list with the values. The tasks processed by the
+   supervisor have already been populated into the returnList, and
+   they do not appear inside the data buffer.
+
+   @param[in]     buffer               data buffer
+   @param[in,out] returnList           R list storing results of evaluation
+   @param[in]     sizes                number of bytes per task
+   @param[in]     supervisorWorkCount  number of tasks processed by supervisor
+   @param[in]     numArgs              number of tasks 
+*/
 void processIncomingData(unsigned char *buffer, SEXP returnList, 
    int *sizes, int supervisorWorkCount, int numArgs) {
 
