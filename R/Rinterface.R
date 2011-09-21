@@ -15,7 +15,7 @@
 
 pbInit <- function() {
    invisible(.Call("initPiebaldMPI", PACKAGE = "PiebaldMPI"))
-   if(pbRank() > 0) {
+   if(getRank() > 0) {
       quit(save = "no")
    }
 }
@@ -24,7 +24,7 @@ pbFinalize <- function() {
    invisible(.Call("finalizePiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
-pbRank <- function() {
+getRank <- function() {
    return(.Call("getrankPiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
@@ -33,7 +33,7 @@ pbSize <- function() {
 }
 
 pbLapply <- function(X, FUN, ...) {
-   rank <- pbRank()
+   rank <- getRank()
    nproc <- pbSize()
    if (rank > 0 || nproc < 2) {
       return(lapply(X, FUN, ...))

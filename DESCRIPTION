@@ -2,7 +2,7 @@ Package: PiebaldMPI
 Version: 0.1.0
 Date: 2011-09-09
 Title: Robust Scalable MPI Interface
-Author: Michael Spiegel
+Author: Michael Spiegel, Ross Gore
 Maintainer: OpenMx Development Team <openmx-developers@list.mail.virginia.edu>
 Description: Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 License: Apache License 2.0
