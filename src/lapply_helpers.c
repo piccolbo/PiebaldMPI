@@ -194,10 +194,9 @@ void evaluateLocalWork(SEXP functionName, SEXP serializeArgs,
 
 */
 void receiveIncomingLengths(int *lengths, int *displacements, int *total) {
-   const int empty = 0;
-   int i;
+   int i, empty = 0;
 
-   MPI_Gather((void*) &empty, 1, MPI_INT, lengths, 
+   MPI_Gather(&empty, 1, MPI_INT, lengths, 
       1, MPI_INT, 0, MPI_COMM_WORLD);
 
    for(i = 0; i < readonly_nproc; i++) {
