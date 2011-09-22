@@ -38,7 +38,7 @@ void sendFunctionName(SEXP functionName) {
    MPI_Bcast(&nameLength, 1, MPI_INT, 0, MPI_COMM_WORLD);
    MPI_Bcast((void*) functionString, nameLength, MPI_CHAR, 0, MPI_COMM_WORLD);
 
-   UNPROTECT(1); // STRING_ELT(functionName, 0)
+   UNPROTECT(1);
 }
 
 
@@ -57,78 +57,32 @@ void sendRemainder(SEXP serializeRemainder) {
 
 
 /**
-   Populate the argument counts and broadcast them to worker processes.
-
-   Prior to calling this function, the number of tasks to be performed
-   by the supervisor process has already been determined. This function
-   will balance the remaining tasks across the worker processes, and then
-   inform the worker processes how much work to expect.
-
-   @param[out] argcounts            array of argument counts
-   @param[in]  supervisorWorkCount  # of tasks for supervisor
-   @param[in]  numArgs              # of total tasks
-*/
-void sendArgCounts(int *argcounts, int supervisorWorkCount, int numArgs) {
-   int i, div, mod, offset;
-
-   argcounts[0] = supervisorWorkCount;
-   div = (numArgs - supervisorWorkCount) / (readonly_nproc - 1);
-   mod = (numArgs - supervisorWorkCount) % (readonly_nproc - 1);
-   offset = 1 + mod;
-   for(i = 1; i < offset; i++) {
-      argcounts[i] = div + 1;
-   }
-   for(i = offset; i < readonly_nproc; i++) {
-      argcounts[i] = div;
-   }
-
-   MPI_Scatter(argcounts, 1, MPI_INT, &supervisorWorkCount, 
-      1, MPI_INT, 0, MPI_COMM_WORLD);
-}
-
-
-/**
    Populate the raw byte counts and broadcast them to worker processes.
 
-   Prior to calling this function, the number of tasks to be performed
-   by the worker processes has already been determined. This function
-   will determine the length (the byte count) of each serialized task 
-   to be sent to a worker process, and then broadcast the byte counts
-   to the worker processes.
+   This function will determine the length (the byte count) of 
+   each serialized list of tasks to be sent to a worker process, 
+   and then broadcast the byte counts to the worker processes.
 
-   @param[out] rawByteCounts     array of byte counts
-   @param[in]  argcounts         array of argument counts
-   @param[in]  serializeArgs     R list of raw vectors with serialized input
-   @param[out] totalLength       sum of rawByteCounts
+   @param[out] lengths          array of byte counts
+   @param[in]  serializeArgs    R list of raw vectors with serialized input
+   @param[out] totalLength      sum of rawByteCounts
 */
-void sendRawByteCounts(int *rawByteCounts, int *argcounts, 
-   SEXP serializeArgs, size_t *totalLength) {
-   size_t currentLength = 0, offset = 0;
-   int supervisorByteCount;
-   int i, proc, current = 1;
-   int numArgs = LENGTH(serializeArgs);
-   int supervisorWorkCount = argcounts[0];
+void sendRawByteCounts(int *lengths, SEXP serializeArgs, 
+                       int *totalLength) {
+   int length = 0;
+   int i, supervisorByteCount;
    SEXP arg;
 
    *totalLength = 0;
-   proc = (supervisorWorkCount == 0) ? 1 : 0;
-   for(i = 0; i < numArgs; i++) {
+   for(i = 0; i < readonly_nproc; i++) {
       PROTECT(arg = VECTOR_ELT(serializeArgs, i));
-      offset = LENGTH(arg);
-      *totalLength += offset;
-      currentLength += offset;
-      if(argcounts[proc] == current) {
-         rawByteCounts[proc] = currentLength;
-         currentLength = 0;
-         current = 1;
-         proc++;
-      } else {
-         current++;
-      }
-      UNPROTECT(1); // VECTOR_ELT(serializeArgs, i)
+      length = LENGTH(arg);
+      *totalLength += length;
+      lengths[i] = length;
+      UNPROTECT(1);
    }
 
-   MPI_Scatter(rawByteCounts, 1, MPI_INT, &supervisorByteCount, 
+   MPI_Scatter(lengths, 1, MPI_INT, &supervisorByteCount, 
       1, MPI_INT, 0, MPI_COMM_WORLD);
 }
 
@@ -142,83 +96,48 @@ void sendRawByteCounts(int *rawByteCounts, int *argcounts,
    to determine the diplacement array given the byte count array.
 
    @param[out]  displacements     array of byte displacements
-   @param[in]   counts            array of byte counts
+   @param[in]   lengths           array of byte counts
 */
-void generateRawByteDisplacements(int *displacements, int *counts) {
+void generateRawByteDisplacements(int *displacements, int *lengths) {
    int i;
    for(i = 1; i < readonly_nproc; i++) {
-      displacements[i] = counts[i - 1] + displacements[i - 1];
+      displacements[i] = lengths[i - 1] + displacements[i - 1];
    }
-}
-
-/**
-   Broadcast the byte count per task the worker processes.
-
-   The array of argcounts has previously been broadcast to the workers.
-   As each worker is aware of how many tasks it will process,
-   we will now broadcast the byte count for each task.
-
-   @param[in]   argcounts        array of argument counts
-   @param[out]  supervisorSizes  array of supervisor byte counts.
-   @param[in]   serializeArgs    R list of raw vectors with serialized input
-*/
-void sendArgumentSizes(int *argcounts, int *supervisorSizes, 
-   SEXP serializeArgs) {
-
-   int numArgs = LENGTH(serializeArgs);
-   int *sizes = Calloc(numArgs, int);
-   int *displacements = Calloc(readonly_nproc, int);
-   int supervisorWorkCount = argcounts[0];
-   int i, offset;
-   SEXP arg;
-
-   for(i = 0; i < numArgs; i++) {
-      PROTECT(arg = VECTOR_ELT(serializeArgs, i));
-      offset = LENGTH(arg);
-      sizes[i] = offset;
-      UNPROTECT(1);
-   } 
-
-   for(i = 1; i < readonly_nproc; i++) {
-      displacements[i] = displacements[i - 1] + argcounts[i - 1];
-   }
-
-   MPI_Scatterv(sizes, argcounts, displacements, MPI_INT,
-      supervisorSizes, supervisorWorkCount, MPI_INT, 0, MPI_COMM_WORLD);
-
-   Free(sizes);
-   Free(displacements);
 }
 
 /**
    Broadcast the tasks to the worker processes.
 
-   The array of argcounts has previously been broadcast to the workers.
-   The array of byte counts per task has previously been broadcast to
-   the workers. We will now broadcast the data for each task to the
-   workers.
-
-   @param[in]   argcounts        array of argument counts
-   @param[out]  supervisorSizes  array of supervisor byte counts.
-   @param[in]   serializeArgs    R list of raw vectors with serialized input
+   @param[in]  displacements     array of byte displacements
+   @param[in]  lengths           array of byte counts
+   @param[in]  totalLength       sum of lengths
+   @param[in]  serializeArgs     R list of raw vectors with serialized input
 */
-void sendArgRawBytes(unsigned char *sendBuffer, int *displacements, int *counts,
-    unsigned char *receiveBuffer, SEXP serializeArgs) {
+void sendArgRawBytes(int *displacements, int *lengths, int totalLength, 
+   SEXP serializeArgs) {
 
    int i, numArgs = LENGTH(serializeArgs);
-   size_t offset, currentLength = 0;
+   int offset, currentLength = 0;
    SEXP arg;
+  
+   unsigned char *sendBuffer = NULL, *receiveBuffer = NULL;
+
+   sendBuffer = Calloc(totalLength, unsigned char);
+   receiveBuffer = Calloc(lengths[0], unsigned char);
 
    for(i = 0; i < numArgs; i++) {
       PROTECT(arg = VECTOR_ELT(serializeArgs, i));
       offset = LENGTH(arg);
       memcpy(sendBuffer + currentLength, RAW(arg), offset);
       currentLength += offset;
-      UNPROTECT(1); // VECTOR_ELT(serializeArgs, i)
+      UNPROTECT(1);
    }
 
-   MPI_Scatterv(sendBuffer, counts, displacements, MPI_BYTE,
-      receiveBuffer, counts[0], MPI_BYTE, 0, MPI_COMM_WORLD);
+   MPI_Scatterv(sendBuffer, lengths, displacements, MPI_BYTE,
+      receiveBuffer, lengths[0], MPI_BYTE, 0, MPI_COMM_WORLD);
+
+   Free(sendBuffer);
+   Free(receiveBuffer);
 }
 
 /**
@@ -231,36 +150,33 @@ void sendArgRawBytes(unsigned char *sendBuffer, int *displacements, int *counts,
    @param[in]  serializeArgs       R list of raw vectors with serialized input
    @param[in]  serializeRemainder  R raw vector storing serialized "..." args
    @param[out] returnList          R list storing results of evaluation
-   @param[in]  count               number of tasks to process
 */
 void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, 
-   SEXP serializeRemainder, SEXP returnList, int count) {
+   SEXP serializeRemainder, SEXP returnList) {
 
-   int i;
    SEXP unserializeCall, functionCall;
-   SEXP remainder;
+   SEXP theFunction;
+   SEXP args, remainder;
+
+   PROTECT(theFunction = findVar(
+       install(CHAR(STRING_ELT(functionName, 0))), R_GlobalEnv));
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
 
    SETCADR(unserializeCall, serializeRemainder);
    PROTECT(remainder = eval(unserializeCall, R_GlobalEnv));
 
+   SETCADR(unserializeCall, VECTOR_ELT(serializeArgs, 0));
+   PROTECT(args = eval(unserializeCall, R_GlobalEnv));
+
    functionCall = Rf_VectorToPairList(remainder);
 
-   PROTECT(functionCall = LCONS(findVar(
-       install(CHAR(STRING_ELT(functionName, 0))), R_GlobalEnv),
-          LCONS(R_NilValue, functionCall)));
+   PROTECT(functionCall = LCONS(readonly_lapply, 
+             LCONS(args, LCONS(theFunction, functionCall))));
 
-   for(i = 0; i < count; i++) {
-      SEXP serialArg = VECTOR_ELT(serializeArgs, i);
-      SETCADR(unserializeCall, serialArg);
-      SEXP arg = eval(unserializeCall, R_GlobalEnv);
-      SETCADR(functionCall, arg); 
-      SET_VECTOR_ELT(returnList, i, eval(functionCall, R_GlobalEnv));
-   }
+   SET_VECTOR_ELT(returnList, 0, eval(functionCall, R_GlobalEnv));
 
-   UNPROTECT(3);
-
+   UNPROTECT(5);
 }
 
 
@@ -271,55 +187,23 @@ void evaluateLocalWork(SEXP functionName, SEXP serializeArgs,
    After processing its local tasks, each worker informs the supervisor
    of the total number of bytes the worker has generated, so that the 
    supervisor can allocate enough memory in the receive buffer.
-   The total number of bytes per worker is necessary for transmitting
-   the return values from the workers to the supervisor. In 
-   receiveIncomingSizes, the total number of bytes per task is gathered
-   so that the receiving buffer can be unpacked into return values.
 
-   @param[out]  lengths        total byte count per worker
+   @param[in]   lengths         total byte count per worker
+   @param[out]  displacements   displacement buffer per worker
+   @param[out]  total           total number of bytes to receive
+
 */
-void receiveIncomingLengths(int *lengths) {
+void receiveIncomingLengths(int *lengths, int *displacements, int *total) {
    const int empty = 0;
+   int i;
 
    MPI_Gather((void*) &empty, 1, MPI_INT, lengths, 
       1, MPI_INT, 0, MPI_COMM_WORLD);
-}
-
-
-
-/**
-   Receive the byte count per task from the workers.
-
-   The total number of bytes per worker has been populated in the
-   lengths aray. The total number of bytes per task
-   is gathered so that the receiving buffer can be unpacked into
-   return values. The function populates the displacements array
-   and calculates the total number of bytes to be received.
-
-   @param[in]   lengths         total byte count per worker
-   @param[out]  sizes           number of bytes per task
-   @param[out]  displacements   displacement buffer per worker
-   @param[in]   argcounts       number of tasks per worker
-   @param[out]  total           total number of bytes to receive
-*/
-void receiveIncomingSizes(int *lengths, int *sizes, 
-                          int *displacements, int *argcounts, int *total) {
-
-   int i, *sizeDisplacements = Calloc(readonly_nproc, int);
 
    for(i = 0; i < readonly_nproc; i++) {
       *total += lengths[i];
       if (i > 0) displacements[i] = lengths[i - 1] + displacements[i - 1];
    }
-
-   for(i = 1; i < readonly_nproc; i++) {
-      sizeDisplacements[i] = sizeDisplacements[i - 1] + argcounts[i - 1];
-   }
-
-   MPI_Gatherv(NULL, 0, MPI_INT, sizes, argcounts, sizeDisplacements,
-      MPI_INT, 0, MPI_COMM_WORLD);
-
-   free(sizeDisplacements);
 }
 
 
@@ -331,8 +215,7 @@ void receiveIncomingSizes(int *lengths, int *sizes,
    @param[in]   lengths         total byte count per worker
    @param[in]   displacements   displacement buffer per worker
 */
-void receiveIncomingData(unsigned char *buffer, 
-   int *lengths, int *displacements) {
+void receiveIncomingData(unsigned char *buffer, int *lengths, int *displacements) {
 
    MPI_Gatherv(NULL, 0, MPI_BYTE, buffer, lengths, displacements,
       MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -348,31 +231,27 @@ void receiveIncomingData(unsigned char *buffer,
    supervisor have already been populated into the returnList, and
    they do not appear inside the data buffer.
 
-   @param[in]     buffer               data buffer
-   @param[in,out] returnList           R list storing results of evaluation
-   @param[in]     sizes                number of bytes per task
-   @param[in]     supervisorWorkCount  number of tasks processed by supervisor
-   @param[in]     numArgs              number of tasks 
-*/
-void processIncomingData(unsigned char *buffer, SEXP returnList, 
-   int *sizes, int supervisorWorkCount, int numArgs) {
+   @param[in]  buffer              data buffer
+   @param[in]  lengths             number of bytes per worker
+   @param[out] returnList          R list storing results of evaluation
 
-   int element = supervisorWorkCount;
-   int offset = 0;
+*/
+void processIncomingData(unsigned char *buffer, int *lengths, SEXP returnList) {
+
+   int i, offset = 0;
    SEXP unserializeCall;
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
 
-   while(element < numArgs) {
-      int nextSize = sizes[element];
-      SEXP serialArg;
-      PROTECT(serialArg = allocVector(RAWSXP, nextSize));
-      memcpy(RAW(serialArg), buffer + offset, nextSize);
-      SETCADR(unserializeCall, serialArg);
-      SET_VECTOR_ELT(returnList, element, eval(unserializeCall, R_GlobalEnv));
+   for(i = 1; i < readonly_nproc; i++) {
+      int nextSize = lengths[i];
+      SEXP serialList;
+      PROTECT(serialList = allocVector(RAWSXP, nextSize));
+      memcpy(RAW(serialList), buffer + offset, nextSize);
+      SETCADR(unserializeCall, serialList);
+      SET_VECTOR_ELT(returnList, i, eval(unserializeCall, R_GlobalEnv));
       UNPROTECT(1);
       offset += nextSize;
-      element++;
    }
 
    UNPROTECT(1);

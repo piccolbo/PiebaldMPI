@@ -24,19 +24,15 @@
 
 void sendFunctionName(SEXP functionName);
 void sendRemainder(SEXP serializeRemainder);
-void sendArgCounts(int *argcounts, int supervisorWorkCount, int numArgs);
-void sendRawByteCounts(int *rawByteCounts, int *argcounts, SEXP serializeArgs, size_t *totalLength);
-void generateRawByteDisplacements(int *rawByteDisplacements, int *rawByteCounts);
-void sendArgumentSizes(int *argcounts, int *supervisorSizes, SEXP serializeArgs);
-void sendArgRawBytes(unsigned char *argRawBytes, int *rawByteDisplacements, int *rawByteCounts,
-    unsigned char *receiveBuffer, SEXP serializeArgs);
+void sendRawByteCounts(int *lengths, SEXP serializeArgs, int *totalLength);
+void generateRawByteDisplacements(int *displacements, int *lengths);
+void sendArgRawBytes(int *displacements, int *lengths, int totalLength, 
+   SEXP serializeArgs);
 
-void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP serializeRemainder, SEXP returnList, int count);
+void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP serializeRemainder, SEXP returnList);
 
-void receiveIncomingLengths(int *lengths);
-void receiveIncomingSizes(int *lengths, int *sizes, int *displacements, int *argcounts, int *total);
+void receiveIncomingLengths(int *lengths, int *displacements, int *total);
 void receiveIncomingData(unsigned char *buffer, int *lengths, int *displacements);
-void processIncomingData(unsigned char *buffer, SEXP returnList, 
-   int *sizes, int supervisorWorkCount, int numArgs);
+void processIncomingData(unsigned char *buffer, int *lengths, SEXP returnList);
 
 #endif //_lapply_helpers_h

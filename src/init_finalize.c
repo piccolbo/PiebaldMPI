@@ -25,6 +25,7 @@ int readonly_initialized = 0;
 
 SEXP readonly_serialize = NULL;
 SEXP readonly_unserialize = NULL;
+SEXP readonly_lapply = NULL;
 
 SEXP initPiebaldMPI() {
    if(readonly_initialized == TRUE) {
@@ -33,6 +34,7 @@ SEXP initPiebaldMPI() {
 
    readonly_serialize   = findVar(install("serialize"), R_GlobalEnv);
    readonly_unserialize = findVar(install("unserialize"), R_GlobalEnv);
+   readonly_lapply      = findVar(install("lapply"), R_GlobalEnv);
 
    MPI_Init(NULL, NULL);
    MPI_Comm_size( MPI_COMM_WORLD, &readonly_nproc );

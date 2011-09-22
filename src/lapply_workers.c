@@ -40,104 +40,55 @@ SEXP findFunction() {
 
 void lapplyWorkerPiebaldMPI() {
    int remainderLength;
-   int currentLength;
-   int i, offset;
-   int workCount, bytesCount;
-   int *workSizes;
+   int bytesCount;
    SEXP serializeRemainder, serializeArgs;
-   SEXP serializeReturnList, returnList, theFunction;
-   SEXP remainder;
+   SEXP returnList, theFunction;
+   SEXP args, remainder;
    SEXP serializeCall, unserializeCall, functionCall;
    unsigned char *receiveBuffer = NULL;
-   unsigned char *sendBuffer = NULL;
 
    theFunction = findFunction();
 
    MPI_Bcast(&remainderLength, 1, MPI_INT, 0, MPI_COMM_WORLD);
    PROTECT(serializeRemainder = allocVector(RAWSXP, remainderLength));
-   MPI_Bcast((void*) RAW(serializeRemainder), remainderLength, MPI_BYTE, 0, MPI_COMM_WORLD);
-
-   MPI_Scatter(NULL, 0, MPI_INT, &workCount, 1, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Bcast((void*) RAW(serializeRemainder), remainderLength, 
+      MPI_BYTE, 0, MPI_COMM_WORLD);
 
    MPI_Scatter(NULL, 0, MPI_INT, &bytesCount, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
    receiveBuffer = Calloc(bytesCount, unsigned char);
-   workSizes = Calloc(workCount, int);
 
-   MPI_Scatterv(NULL, NULL, NULL, MPI_INT, workSizes, workCount, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Scatterv(NULL, NULL, NULL, MPI_BYTE, receiveBuffer, bytesCount, 
+      MPI_BYTE, 0, MPI_COMM_WORLD);
 
-   MPI_Scatterv(NULL, NULL, NULL, MPI_BYTE, receiveBuffer, bytesCount, MPI_BYTE, 0, MPI_COMM_WORLD);
-
-   PROTECT(serializeArgs = allocVector(VECSXP, workCount));
-   offset = 0;
-   for(i = 0; i < workCount; i++) {
-      SEXP argument;
-      PROTECT(argument = allocVector(RAWSXP, workSizes[i]));
-      memcpy(RAW(argument), receiveBuffer + offset, workSizes[i]);
-      offset += workSizes[i];
-      SET_VECTOR_ELT(serializeArgs, i, argument);
-      UNPROTECT(1);
-   }
-
-   PROTECT(serializeReturnList = allocVector(VECSXP, workCount));
-   PROTECT(returnList = allocVector(VECSXP, workCount));
+   PROTECT(serializeArgs = allocVector(RAWSXP, bytesCount));
+   memcpy(RAW(serializeArgs), receiveBuffer, bytesCount);
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
+   PROTECT(serializeCall   = lang3(readonly_serialize, R_NilValue, R_NilValue));
 
    SETCADR(unserializeCall, serializeRemainder);
    PROTECT(remainder = eval(unserializeCall, R_GlobalEnv));
 
+   SETCADR(unserializeCall, serializeArgs);
+   PROTECT(args = eval(unserializeCall, R_GlobalEnv));
+
    functionCall = Rf_VectorToPairList(remainder);
 
-   PROTECT(functionCall = LCONS(theFunction, LCONS(R_NilValue, functionCall)));
+   PROTECT(functionCall = LCONS(readonly_lapply, 
+                             LCONS(args, LCONS(theFunction, functionCall))));
 
-   for(i = 0; i < workCount; i++) {
-      SEXP serialArg = VECTOR_ELT(serializeArgs, i);
-      SETCADR(unserializeCall, serialArg);
-      SEXP arg = eval(unserializeCall, R_GlobalEnv);
-      SETCADR(functionCall, arg); 
-      SET_VECTOR_ELT(serializeReturnList, i, eval(functionCall, R_GlobalEnv));
-   }
+   SETCADR(serializeCall, eval(functionCall, R_GlobalEnv));
+
+   PROTECT(returnList = eval(serializeCall, R_GlobalEnv));
   
-   UNPROTECT(3);
-
-   PROTECT(serializeCall = lang3(readonly_serialize, R_NilValue, R_NilValue));
-   for(i = 0; i < workCount; i++) {
-      SEXP arg = VECTOR_ELT(serializeReturnList, i);
-      SETCADR(serializeCall, arg);
-      SET_VECTOR_ELT(returnList, i, eval(serializeCall, R_GlobalEnv));
-   }
-
-   int *answerLengths = Calloc(workCount, int);
-
-   bytesCount = 0;
-   for(i = 0; i < workCount; i++) {
-      offset = LENGTH(VECTOR_ELT(returnList, i));
-      answerLengths[i] = offset;
-      bytesCount += offset;
-   }
+   bytesCount = LENGTH(returnList);
 
    MPI_Gather(&bytesCount, 1, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
 
-   MPI_Gatherv(answerLengths, workCount, MPI_INT, 
-      NULL, NULL, NULL, MPI_INT, 0, MPI_COMM_WORLD);   
-
-   sendBuffer = Calloc(bytesCount, unsigned char);
-
-   offset = 0;
-   for(i = 0; i < workCount; i++) {
-      SEXP arg = VECTOR_ELT(returnList, i);
-      currentLength = LENGTH(arg);      
-      memcpy(sendBuffer + offset, RAW(arg), currentLength);
-      offset += currentLength;
-   }
-
-   MPI_Gatherv(sendBuffer, bytesCount, MPI_BYTE, 
+   MPI_Gatherv(RAW(returnList), bytesCount, MPI_BYTE, 
       NULL, 0, NULL, MPI_BYTE, 0, MPI_COMM_WORLD);
 
-   UNPROTECT(5);
-   Free(sendBuffer);
-   Free(answerLengths);
+   UNPROTECT(8);
    Free(receiveBuffer); 
-   Free(workSizes);
 }
