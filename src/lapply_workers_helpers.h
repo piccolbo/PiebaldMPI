@@ -14,30 +14,30 @@
  *  limitations under the License.
  */
 
+#ifndef _lapply_workers_helpers_h
+#define _lapply_workers_helpers_h
+
 #include "R.h"
 #include <Rinternals.h>
 #include <Rdefines.h>
 #include <R_ext/Rdynload.h>
+#include <mpi.h>
 
-#include "lapply_workers_helpers.h"
+#include "init_finalize.h"
+#include "commands.h"
+#include "state.h"
+#include "lapply_helpers.h"
+#include "compiler_directives.h"
 
-
-void lapplyWorkerPiebaldMPI() {
-   SEXP serializeRemainder, serializeArgs;
-   SEXP returnList, theFunction;
-
-   theFunction = findFunction();
-   
-   serializeRemainder = workerGetRemainder();
-
-   serializeArgs = workerGetArgs();
-   
-   returnList = generateReturnList(theFunction, 
-      serializeRemainder, serializeArgs);
-
-   sendReturnList(returnList);
-
-   workerCleanup(serializeRemainder, serializeArgs, returnList);
-}
+SEXP findFunction();
+SEXP workerGetRemainder();
+SEXP workerGetArgs();
+SEXP generateReturnList(SEXP theFunction, SEXP serializeRemainder, 
+                        SEXP serializeArgs);
+void sendReturnList(SEXP returnList);
+void workerCleanup(SEXP serializeRemainder, SEXP serializeArgs, 
+                   SEXP returnList);
 
 
+
+#endif // #ifndef _lapply_workers_helpers_h
