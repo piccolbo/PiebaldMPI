@@ -51,7 +51,7 @@ void lapplyPiebaldMPI_doSend(SEXP functionName, SEXP serializeArgs,
 
 }
 
-void lapplyPiebaldMPI_doReceive(SEXP returnList) {
+void lapplyPiebaldMPI_doReceive(SEXP workerResultsList, SEXP returnList) {
 
    int *lengths       = Calloc(readonly_nproc, int);
    int *displacements = Calloc(readonly_nproc, int);
@@ -65,7 +65,7 @@ void lapplyPiebaldMPI_doReceive(SEXP returnList) {
 
    receiveIncomingData(buffer, lengths, displacements);
  
-   processIncomingData(buffer, lengths, returnList);
+   processIncomingData(buffer, lengths, workerResultsList, returnList);
 
    Free(lengths);
    Free(displacements);
@@ -75,22 +75,24 @@ void lapplyPiebaldMPI_doReceive(SEXP returnList) {
 
 
 SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs, 
-      SEXP serializeRemainder) {
+      SEXP serializeRemainder, SEXP argLength) {
 
    checkPiebaldInit();
 
-   SEXP returnList;
+   int length = INTEGER(argLength)[0];
+   SEXP workerResultsList, returnList;
 
-   PROTECT(returnList = allocVector(VECSXP, LENGTH(serializeArgs)));
+   PROTECT(workerResultsList = allocVector(VECSXP, readonly_nproc));
+   PROTECT(returnList = allocVector(VECSXP, length));
 
    lapplyPiebaldMPI_doSend(functionName, serializeArgs, serializeRemainder);
 
    evaluateLocalWork(functionName, serializeArgs, serializeRemainder, 
-      returnList);
+      workerResultsList);
 
-   lapplyPiebaldMPI_doReceive(returnList);
+   lapplyPiebaldMPI_doReceive(workerResultsList, returnList);
 
-   UNPROTECT(1);
+   UNPROTECT(2);
 
    return(returnList);
 }

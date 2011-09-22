@@ -24,7 +24,7 @@
 
 
 SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs, 
-      SEXP serializeRemainder);
+      SEXP serializeRemainder, SEXP argLength);
 
 void lapplyWorkerPiebaldMPI();
 

@@ -38,10 +38,11 @@ pbLapply <- function(X, FUN, ...) {
    if (rank > 0 || nproc < 2) {
       return(lapply(X, FUN, ...))
    }
+   argLength <- as.integer(length(X))
    serializeArgs <- serializeInput(X, nproc) 
    functionName <- as.character(match.call()$FUN)
    serializeRemainder <- serialize(list(...), connection = NULL)
    results <- .Call("lapplyPiebaldMPI", functionName, serializeArgs, 
-      serializeRemainder, PACKAGE = "PiebaldMPI")
-   return(unlist(results, recursive = FALSE, use.names = FALSE))
+      serializeRemainder, argLength, PACKAGE = "PiebaldMPI")
+   return(results)
 }

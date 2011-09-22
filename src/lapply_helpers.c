@@ -227,17 +227,20 @@ void receiveIncomingData(unsigned char *buffer, int *lengths, int *displacements
 
    Unserialize the return values from the workers and 
    populate the R list with the values. The tasks processed by the
-   supervisor have already been populated into the returnList, and
+   supervisor have already been populated into the workerResultsList, and
    they do not appear inside the data buffer.
 
    @param[in]  buffer              data buffer
    @param[in]  lengths             number of bytes per worker
-   @param[out] returnList          R list storing results of evaluation
+   @param[out] workerResultsList   R list storing return values from workers
+   @param[out] returnList          unlist() applied to workerResultsList
 
 */
-void processIncomingData(unsigned char *buffer, int *lengths, SEXP returnList) {
+void processIncomingData(unsigned char *buffer, int *lengths, 
+                         SEXP workerResultsList, SEXP returnList) {
 
-   int i, offset = 0;
+   int i, j, offset = 0;
+   int currentLength;
    SEXP unserializeCall;
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
@@ -248,9 +251,19 @@ void processIncomingData(unsigned char *buffer, int *lengths, SEXP returnList) {
       PROTECT(serialList = allocVector(RAWSXP, nextSize));
       memcpy(RAW(serialList), buffer + offset, nextSize);
       SETCADR(unserializeCall, serialList);
-      SET_VECTOR_ELT(returnList, i, eval(unserializeCall, R_GlobalEnv));
+      SET_VECTOR_ELT(workerResultsList, i, eval(unserializeCall, R_GlobalEnv));
       UNPROTECT(1);
       offset += nextSize;
+   }
+
+   offset = 0;
+   for(i = 0; i < readonly_nproc; i++) {
+      SEXP nextList = VECTOR_ELT(workerResultsList, i);  
+      currentLength = LENGTH(nextList);
+      for(j = 0; j < currentLength; j++) {
+         SET_VECTOR_ELT(returnList, offset, VECTOR_ELT(nextList, j));
+         offset++;
+      }
    }
 
    UNPROTECT(1);

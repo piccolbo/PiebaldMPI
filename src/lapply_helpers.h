@@ -33,6 +33,7 @@ void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP serializeRema
 
 void receiveIncomingLengths(int *lengths, int *displacements, int *total);
 void receiveIncomingData(unsigned char *buffer, int *lengths, int *displacements);
-void processIncomingData(unsigned char *buffer, int *lengths, SEXP returnList);
+void processIncomingData(unsigned char *buffer, int *lengths, 
+   SEXP workerResultsList, SEXP returnList);
 
 #endif //_lapply_helpers_h
