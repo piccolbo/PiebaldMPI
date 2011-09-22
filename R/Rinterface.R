@@ -32,45 +32,6 @@ pbSize <- function() {
    return(.Call("getsizePiebaldMPI", PACKAGE = "PiebaldMPI"))
 }
 
-createSegment <- function(base, length, input) {
-   if (length == 0) {
-      return(list())
-   } else {
-      return(input[base : (base + length - 1)])
-   }
-}
-
-serializeInput <- function(input, nproc) {
-   argBase <- integer(nproc)
-   argLength <- integer(nproc)
-   numArgs <- length(input)
-   supervisorWorkCount <- numArgs %/% nproc
-   div <- (numArgs - supervisorWorkCount) %/% (nproc - 1)
-   mod <- (numArgs - supervisorWorkCount) %% (nproc - 1)
-   argBase[[1]] <- 1
-   argLength[[1]] <- supervisorWorkCount
-
-   # This is the stupid that results from indexing arrays beginning with 1
-   if (mod == 0) {
-      argBase[2 : nproc] <- (supervisorWorkCount + 1) + 
-                            (0 : (nproc - 2)) * div
-      argLength[2 : nproc] <- div
-   } else {
-      argLength[2 : (2 + mod - 1)] <- div + 1
-      argLength[(2 + mod) : nproc] <- div
-      argBase[2 : (2 + mod - 1)] <- (supervisorWorkCount + 1) + 
-                                  (0 : (mod - 1)) * (div + 1)
-      argBase[(2 + mod) : nproc] <- argBase[[2 + mod - 1]] + 
-                                  argLength[[2 + mod - 1]] +
-                                  (0 : (nproc - mod - 2)) * div
-   }
-   pieces <- mapply(createSegment, argBase, argLength, 
-      MoreArgs = list(input = input), SIMPLIFY = FALSE)
-   serializeArgs <- lapply(pieces, serialize, NULL)
-   return(serializeArgs)
-}
-
-
 pbLapply <- function(X, FUN, ...) {
    rank <- getRank()
    nproc <- pbSize()
