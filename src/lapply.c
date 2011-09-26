@@ -26,7 +26,7 @@
 #include "lapply_helpers.h"
 
 
-void lapplyPiebaldMPI_doSend(SEXP functionName, SEXP serializeArgs, 
+void lapplyPiebaldMPI_doSend(SEXP serializeFun, SEXP serializeArgs, 
    SEXP serializeRemainder) {
 
    int totalLength = 0;
@@ -36,7 +36,7 @@ void lapplyPiebaldMPI_doSend(SEXP functionName, SEXP serializeArgs,
    int command = LAPPLY;
    MPI_Bcast(&command, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-   sendFunctionName(functionName);
+   sendFunction(serializeFun);
 
    sendRemainder(serializeRemainder);
 
@@ -74,7 +74,7 @@ void lapplyPiebaldMPI_doReceive(SEXP workerResultsList, SEXP returnList) {
 }
 
 
-SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs, 
+SEXP lapplyPiebaldMPI(SEXP serializeFun, SEXP serializeArgs, 
       SEXP serializeRemainder, SEXP argLength) {
 
    checkPiebaldInit();
@@ -85,9 +85,9 @@ SEXP lapplyPiebaldMPI(SEXP functionName, SEXP serializeArgs,
    PROTECT(workerResultsList = allocVector(VECSXP, readonly_nproc));
    PROTECT(returnList = allocVector(VECSXP, length));
 
-   lapplyPiebaldMPI_doSend(functionName, serializeArgs, serializeRemainder);
+   lapplyPiebaldMPI_doSend(serializeFun, serializeArgs, serializeRemainder);
 
-   evaluateLocalWork(functionName, serializeArgs, serializeRemainder, 
+   evaluateLocalWork(serializeFun, serializeArgs, serializeRemainder, 
       workerResultsList);
 
    lapplyPiebaldMPI_doReceive(workerResultsList, returnList);

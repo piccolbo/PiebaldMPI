@@ -40,9 +40,9 @@ pbLapply <- function(X, FUN, ...) {
    }
    argLength <- as.integer(length(X))
    serializeArgs <- serializeInput(X, nproc) 
-   functionName <- as.character(match.call()$FUN)
+   serializeFun <- serialize(FUN, NULL)
    serializeRemainder <- serialize(list(...), connection = NULL)
-   results <- .Call("lapplyPiebaldMPI", functionName, serializeArgs, 
+   results <- .Call("lapplyPiebaldMPI", serializeFun, serializeArgs, 
       serializeRemainder, argLength, PACKAGE = "PiebaldMPI")
    return(results)
 }

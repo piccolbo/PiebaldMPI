@@ -28,17 +28,13 @@
 /**
    Broadcast the name of a function from the supervisor to the worker processes.
 
-   @param[in] functionName  R character vector storing name
+   @param[in] serializeFun R raw vector storing serialized function
 */
-void sendFunctionName(SEXP functionName) {
-   SEXP functionNameExpression = PROTECT(STRING_ELT(functionName, 0));
-   char* functionString = (char*) CHAR(functionNameExpression);
-   int nameLength = strlen(functionString) + 1;
-
-   MPI_Bcast(&nameLength, 1, MPI_INT, 0, MPI_COMM_WORLD);
-   MPI_Bcast((void*) functionString, nameLength, MPI_CHAR, 0, MPI_COMM_WORLD);
-
-   UNPROTECT(1);
+void sendFunction(SEXP serializeFun) {
+   int length = LENGTH(serializeFun);
+   MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
+   MPI_Bcast((void*) RAW(serializeFun), length, 
+      MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
 
@@ -146,25 +142,25 @@ void sendArgRawBytes(int *displacements, int *lengths, int totalLength,
    After broadcasting the data for each task to the workers,
    the supervisor task now processes its share of the work.
 
-   @param[in]  functionName        R character vector storing name.
+   @param[in]  function            R raw vector storing serialized function.
    @param[in]  serializeArgs       R list of raw vectors with serialized input
    @param[in]  serializeRemainder  R raw vector storing serialized "..." args
    @param[out] returnList          R list storing results of evaluation
 */
-void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, 
+void evaluateLocalWork(SEXP serializedFunction, SEXP serializeArgs, 
    SEXP serializeRemainder, SEXP returnList) {
 
    SEXP unserializeCall, functionCall;
    SEXP theFunction;
    SEXP args, remainder;
 
-   PROTECT(theFunction = findVar(
-       install(CHAR(STRING_ELT(functionName, 0))), R_GlobalEnv));
-
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
 
    SETCADR(unserializeCall, serializeRemainder);
    PROTECT(remainder = eval(unserializeCall, R_GlobalEnv));
+
+   SETCADR(unserializeCall, serializedFunction);
+   PROTECT(theFunction = eval(unserializeCall, R_GlobalEnv));
 
    SETCADR(unserializeCall, VECTOR_ELT(serializeArgs, 0));
    PROTECT(args = eval(unserializeCall, R_GlobalEnv));

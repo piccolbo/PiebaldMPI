@@ -35,8 +35,8 @@ SEXP workerGetArgs();
 SEXP generateReturnList(SEXP theFunction, SEXP serializeRemainder, 
                         SEXP serializeArgs);
 void sendReturnList(SEXP returnList);
-void workerCleanup(SEXP serializeRemainder, SEXP serializeArgs, 
-                   SEXP returnList);
+void workerCleanup(SEXP serializeFunction, SEXP serializeRemainder, 
+                   SEXP serializeArgs, SEXP returnList);
 
 
 

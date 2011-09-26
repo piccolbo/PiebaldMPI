@@ -28,21 +28,20 @@
 
 
 /**
-   Receive the name of the function from the supervisor.
+   Receive the serialized function from the supervisor.
 
    @return  R function language object
 */
 SEXP findFunction() {
-   int nameLength;
-   char *functionName;
-   SEXP retval;
+   int length;
+   SEXP function;
 
-   MPI_Bcast(&nameLength, 1, MPI_INT, 0, MPI_COMM_WORLD);
-   functionName = Calloc(nameLength, char);
-   MPI_Bcast((void*) functionName, nameLength, MPI_CHAR, 0, MPI_COMM_WORLD);
-   retval = findVar(install(functionName), R_GlobalEnv);
-   Free(functionName);
-   return(retval);
+   MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
+   PROTECT(function = allocVector(RAWSXP, length));
+   MPI_Bcast((void*) RAW(function), length, 
+      MPI_BYTE, 0, MPI_COMM_WORLD);
+
+   return(function);
 }
 
 /**
@@ -93,10 +92,10 @@ SEXP workerGetArgs() {
    @param[in] serializeArgs        R serialized arguments to lapply
    @return                         R serialized object storing the return list.
 */
-SEXP generateReturnList(SEXP theFunction, SEXP serializeRemainder, 
+SEXP generateReturnList(SEXP serializedFunction, SEXP serializeRemainder, 
                         SEXP serializeArgs) {
 
-   SEXP serializeCall, unserializeCall, functionCall;
+   SEXP serializeCall, unserializeCall, theFunction, functionCall;
    SEXP args, remainder;
    SEXP returnList;
 
@@ -105,6 +104,9 @@ SEXP generateReturnList(SEXP theFunction, SEXP serializeRemainder,
 
    SETCADR(unserializeCall, serializeRemainder);
    PROTECT(remainder = eval(unserializeCall, R_GlobalEnv));
+
+   SETCADR(unserializeCall, serializedFunction);
+   PROTECT(theFunction = eval(unserializeCall, R_GlobalEnv));
 
    SETCADR(unserializeCall, serializeArgs);
    PROTECT(args = eval(unserializeCall, R_GlobalEnv));
@@ -117,7 +119,7 @@ SEXP generateReturnList(SEXP theFunction, SEXP serializeRemainder,
    SETCADR(serializeCall, eval(functionCall, R_GlobalEnv));
 
    returnList = eval(serializeCall, R_GlobalEnv);
-   UNPROTECT(5);
+   UNPROTECT(6);
    
    PROTECT(returnList);
 
@@ -149,10 +151,11 @@ void sendReturnList(SEXP returnList) {
    @param[in] serializeArgs       R serialized arguments to lapply
    @param[in] returnList          R serialized object storing the return list.
 */
-void workerCleanup(SEXP serializeRemainder COMPILER_DIRECTIVE_UNUSED, 
+void workerCleanup(SEXP serializeFunction COMPILER_DIRECTIVE_UNUSED,
+                   SEXP serializeRemainder COMPILER_DIRECTIVE_UNUSED, 
                    SEXP serializeArgs COMPILER_DIRECTIVE_UNUSED, 
                    SEXP returnList COMPILER_DIRECTIVE_UNUSED) {
-   UNPROTECT(3);
+   UNPROTECT(4);
 }
 
 

@@ -22,14 +22,14 @@
 #include <Rdefines.h>
 #include <R_ext/Rdynload.h>
 
-void sendFunctionName(SEXP functionName);
+void sendFunction(SEXP serializeFun);
 void sendRemainder(SEXP serializeRemainder);
 void sendRawByteCounts(int *lengths, SEXP serializeArgs, int *totalLength);
 void generateRawByteDisplacements(int *displacements, int *lengths);
 void sendArgRawBytes(int *displacements, int *lengths, int totalLength, 
    SEXP serializeArgs);
 
-void evaluateLocalWork(SEXP functionName, SEXP serializeArgs, SEXP serializeRemainder, SEXP returnList);
+void evaluateLocalWork(SEXP function, SEXP serializeArgs, SEXP serializeRemainder, SEXP returnList);
 
 void receiveIncomingLengths(int *lengths, int *displacements, int *total);
 void receiveIncomingData(unsigned char *buffer, int *lengths, int *displacements);

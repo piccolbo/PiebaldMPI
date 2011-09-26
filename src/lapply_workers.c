@@ -24,20 +24,20 @@
 
 void lapplyWorkerPiebaldMPI() {
    SEXP serializeRemainder, serializeArgs;
-   SEXP returnList, theFunction;
+   SEXP returnList, serializeFunction;
 
-   theFunction = findFunction();
+   serializeFunction = findFunction();
    
    serializeRemainder = workerGetRemainder();
 
    serializeArgs = workerGetArgs();
    
-   returnList = generateReturnList(theFunction, 
+   returnList = generateReturnList(serializeFunction, 
       serializeRemainder, serializeArgs);
 
    sendReturnList(returnList);
 
-   workerCleanup(serializeRemainder, serializeArgs, returnList);
+   workerCleanup(serializeFunction, serializeRemainder, serializeArgs, returnList);
 }
 
 
