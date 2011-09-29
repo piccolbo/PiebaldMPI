@@ -87,7 +87,7 @@ SEXP workerGetArgs() {
 /**
    Evaluate the function and generate return list.
 
-   @param[in] theFunction          R function language object
+   @param[in] serializedFunction   R serialized function language object
    @param[in] serializeRemainder   R serialized "..." arguments to lapply
    @param[in] serializeArgs        R serialized arguments to lapply
    @return                         R serialized object storing the return list.
@@ -147,6 +147,7 @@ void sendReturnList(SEXP returnList) {
 /**
    Cleanup any variables that live on the protect stack.
 
+   @param[in] serializeFunction   R serialized function language object
    @param[in] serializeRemainder  R serialized "..." arguments to lapply
    @param[in] serializeArgs       R serialized arguments to lapply
    @param[in] returnList          R serialized object storing the return list.
