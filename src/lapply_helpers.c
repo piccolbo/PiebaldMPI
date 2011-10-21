@@ -236,21 +236,27 @@ void processIncomingData(unsigned char *buffer, int *lengths,
                          SEXP workerResultsList, SEXP returnList) {
 
    int i, j, offset = 0;
-   int currentLength;
-   SEXP unserializeCall;
+   int currentLength, maxLength = 0;
+   SEXP serialList, unserializeCall;
 
    PROTECT(unserializeCall = lang2(readonly_unserialize, R_NilValue));
 
    for(i = 1; i < readonly_nproc; i++) {
+      if (lengths[i] > maxLength) maxLength = lengths[i];
+   }
+
+   PROTECT(serialList = allocVector(RAWSXP, maxLength));
+
+   for(i = 1; i < readonly_nproc; i++) {
       int nextSize = lengths[i];
-      SEXP serialList;
-      PROTECT(serialList = allocVector(RAWSXP, nextSize));
+      SETLENGTH(serialList, nextSize);
       memcpy(RAW(serialList), buffer + offset, nextSize);
       SETCADR(unserializeCall, serialList);
       SET_VECTOR_ELT(workerResultsList, i, eval(unserializeCall, R_GlobalEnv));
-      UNPROTECT(1);
       offset += nextSize;
    }
+
+   UNPROTECT(1);
 
    offset = 0;
    for(i = 0; i < readonly_nproc; i++) {
